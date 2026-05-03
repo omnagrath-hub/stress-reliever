@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Particle Explosion App</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  font-family: Arial, sans-serif;
+}
+
+/* HEADER becomes editable */
+header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 12px;
+  z-index: 10;
+}
+
+#titleInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: cyan;
+  font-size: 22px;
+  text-align: center;
+  width: 60%;
+}
+
+/* Controls */
+#controls {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+}
+
+/* WHITE TEXT + WHITE ARROW DROPDOWN */
+#colorMode {
+  padding: 6px;
+  background: black;
+  color: white;
+  border: 1px solid white;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='14' viewBox='0 0 20 20' width='14' xmlns='http://www.w3.org/2000/svg'><polygon points='0,0 20,0 10,10'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+  padding-right: 28px;
+}
+
+#customColor {
+  display: none;
+  width: 40px;
+  height: 30px;
+  border: none;
+  cursor: pointer;
+}
+
+canvas {
+  display: block;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <input id="titleInput" value="Type whatever you want...">
+</header>
+
+<div id="controls">
+  <select id="colorMode">
+    <option value="cyan">Cyan</option>
+    <option value="neon">Neon</option>
+    <option value="fire">Fire</option>
+    <option value="ice">Ice</option>
+    <option value="random">Random</option>
+    <option value="custom">Custom</option>
+  </select>
+
+  <input type="color" id="customColor" value="#00ffff">
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const titleInput = document.getElementById("titleInput");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+let particles = [];
+let pointer = { x: 0, y: 0, active: false };
+let exploded = false;
+let cooldown = 0;
+
+/* COLOR SYSTEM */
+let colorMode = "cyan";
+let customColor = "#00ffff";
+
+const colorSelect = document.getElementById("colorMode");
+const colorPicker = document.getElementById("customColor");
+
+/* HEADER COLOR CONTROL */
+function updateHeaderColor() {
+  switch (colorMode) {
+    case "neon":
+      titleInput.style.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+      break;
+    case "fire":
+      titleInput.style.color = `hsl(${Math.random() * 30}, 100%, 50%)`;
+      break;
+    case "ice":
+      titleInput.style.color = `hsl(${180 + Math.random() * 60}, 100%, 70%)`;
+      break;
+    case "random":
+      titleInput.style.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+      break;
+    case "custom":
+      titleInput.style.color = customColor;
+      break;
+    default:
+      titleInput.style.color = "cyan";
+  }
+}
+
+colorSelect.addEventListener("change", () => {
+  colorMode = colorSelect.value;
+  colorPicker.style.display = (colorMode === "custom") ? "block" : "none";
+  updateHeaderColor();
+});
+
+colorPicker.addEventListener("input", () => {
+  customColor = colorPicker.value;
+  updateHeaderColor();
+});
+
+function getParticleColor(p) {
+  switch (colorMode) {
+    case "neon":
+      return `hsl(${(p.x + p.y) % 360}, 100%, 60%)`;
+    case "fire":
+      return `hsl(${Math.random() * 30}, 100%, 50%)`;
+    case "ice":
+      return `hsl(${180 + Math.random() * 60}, 100%, 70%)`;
+    case "random":
+      return `hsl(${Math.random() * 360}, 100%, 60%)`;
+    case "custom":
+      return customColor;
+    default:
+      return "cyan";
+  }
+}
+
+// particles
+for (let i = 0; i < 1000; i++) {
+  particles.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    vx: (Math.random() - 0.5) * 2,
+    vy: (Math.random() - 0.5) * 2
+  });
+}
+
+// pointer
+function setPointer(clientX, clientY, active = true) {
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = clientX - rect.left;
+  pointer.y = clientY - rect.top;
+  pointer.active = active;
+}
+
+window.addEventListener("mousemove", e => {
+  setPointer(e.clientX, e.clientY, true);
+});
+
+window.addEventListener("touchstart", e => {
+  setPointer(e.touches[0].clientX, e.touches[0].clientY, true);
+});
+
+window.addEventListener("touchmove", e => {
+  setPointer(e.touches[0].clientX, e.touches[0].clientY, true);
+});
+
+window.addEventListener("touchend", () => {
+  pointer.active = false;
+});
+
+// explosion
+function explode() {
+  particles.forEach(p => {
+    let dx = p.x - pointer.x;
+    let dy = p.y - pointer.y;
+    let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+
+    let force = 8 + Math.random() * 4;
+    p.vx = (dx / dist) * force;
+    p.vy = (dy / dist) * force;
+  });
+}
+
+function animate() {
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let closeCount = 0;
+
+  particles.forEach(p => {
+
+    if (pointer.active && cooldown <= 0) {
+      let dx = pointer.x - p.x;
+      let dy = pointer.y - p.y;
+      let dist = Math.sqrt(dx*dx + dy*dy);
+
+      if (dist < 25) closeCount++;
+
+      p.vx += dx * 0.002;
+      p.vy += dy * 0.002;
+    }
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+    p.vx *= 0.96;
+    p.vy *= 0.96;
+
+    if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+    if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = getParticleColor(p);
+    ctx.fill();
+  });
+
+  if (closeCount > particles.length * 0.6 && !exploded && cooldown <= 0) {
+    explode();
+    exploded = true;
+    cooldown = 60;
+  }
+
+  if (cooldown > 0) {
+    cooldown--;
+    if (cooldown === 0) exploded = false;
+  }
+
+  if (colorMode === "neon" || colorMode === "random") {
+    updateHeaderColor();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+updateHeaderColor();
+animate();
+</script>
+
+</body>
+</html>
